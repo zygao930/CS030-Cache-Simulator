@@ -25,6 +25,7 @@ fn check_cache(address: u64, cache: &mut Cache) -> Result<(), String> {
     // First, read the input from trace files
 
     // Second, check cache hits, misses, and evictions
+    // HIT
     // MISS
     // EVIC MISS
     Ok(())
