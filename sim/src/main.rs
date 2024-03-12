@@ -3,7 +3,12 @@
 // Define the Line struct
 struct Line {
     // Line stores its block, validity, tag, and recency/age information.
-    block: u64
+    block: u64;
+    //validity:
+    //tag:
+    //age:
+
+
 }
 
 // Define the Set struct
