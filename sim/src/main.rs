@@ -104,7 +104,10 @@ fn operate_flags(trace_file: &str, cache: &mut Cache) {
             "I" => {},
             "L" => {
                 check_cache(address,cache);
-            },     
+            }, 
+            "S" => {
+                
+            },    
         }
     }
 
