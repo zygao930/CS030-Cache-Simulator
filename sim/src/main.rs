@@ -1,10 +1,10 @@
+#![allow(unused)]
 extern crate getopts;
 use getopts::Options;
 use std::env;
 use std::fs;
 use std::io::{BufReader, BufRead};
 use std::fs::File;
-use std::error;
 
 // Define the Line struct
 #[derive(Clone)] 
@@ -12,7 +12,7 @@ struct Line {
     // Line stores its block, validity, tag, and recency/age information.
     block: u64,
     validity: bool,
-    tag: u32,
+    tag: u64,
     age: u32,
 }
 
@@ -41,75 +41,170 @@ enum Cacheresult {
     Full           
  }
 
-// Implement functions for cache operations
+ fn hex_to_binary(hex_address: &str) -> Result<String, String> {
+    let decimal: usize = match usize::from_str_radix(hex_address, 16) {
+        Ok(x) => x,
+        Err(err) => panic!("Error parsing hex address {} ({})", hex_address, err),
+    };
+    let binary = format!("{:0>64b}", decimal); 
+    Ok(binary)
+}
 
 // Function to check for cache hits, misses, and evictions
-fn check_cache(address: u64, cache: &mut Cache) -> Result<(), String> {
+fn check_cache(s: usize, cache: &mut Cache, set: usize, tag: u64) -> Result<Cacheresult, String> {
     // Implement the logic for cache operations
     // Update cache statistics and data structures
-    // HIT
-    // MISS
-    // EVIC MISS
-    Ok(())
-}
-
-// Function to evict a line from the cache based on the specified policy
-fn evict(address: u64, cache: &mut Cache, policy: &str) -> Result<(), String> {
-    // Implement the eviction logic
-    // Use Least-Recently-Used as the replacement policy
-    // Update cache statistics and data structures
-    Ok(())
-}
-
-
-fn operate_cache(address: u64, cache: &Cache){
-    //The operateCache function takes an address and a cache as input and uses the checkCache function 
-    //to determine whether the address is in the cache. 
-    let hit_count: u32 = 0;
-    match Hit {
-        Ok(()) => {
-        hit_count += 1;
+    // HIT/MISS/EVIC MISS  
+    let mut empty_line = 0;
+    for line in &cache.cache[set].set {
+        if line.validity == false {
+            empty_line += 1;
+        }
     }
-    match Miss {
 
-    }
+    for line in &cache.cache[set].set {        
+        if line.validity == true && line.tag == tag {
+            return Ok(Cacheresult::Hit);           
+        } 
+    }           
+
+    if empty_line < s {   
+        return Ok(Cacheresult::Miss);
+    } else {
+        return Ok(Cacheresult::Full);
+    } 
+    Err(String::from("Cache operation failed"))              
 }
 
-// Function to read the trace file and simulate cache behavior
-fn operate_flags(trace_file: &str, cache: &mut Cache) {
+fn evict(s: usize, cache: &mut Cache, block: u64, set: usize, tag: u64)  {
+    // Use Least-Recently-Used as the replacement policy to Implement the eviction logic
+    // Update cache statistics and data structures 
+    let mut min_index: usize = 0;
+    for i in 0..s{
+        let age = cache.cache[set].set[i].age;
+        let min_age = cache.cache[set].set[min_index].age;
+        if age < min_age{
+            min_index = i;
+        }
+        cache.cache[set].set[i].age -= 1;
+    }
+    let evict_line = &mut cache.cache[set].set[min_index];
+    evict_line.age = s as u32 - 1;
+    evict_line.block = block;
+    evict_line.tag = tag;
+    evict_line.validity = true;
+}
+
+fn operate_cache(address: &str, cache: &mut Cache, b: usize, s: usize, operation: &str)  -> Result<(), String>{
+    // implement cache operation
+    let mut hit: u32 = 0;
+    let mut miss: u32 = 0;
+    let mut evict: u32 = 0;
+
+    let binary_address = match hex_to_binary(address) {
+        Ok(binary_address) => binary_address,
+        Err(err) => return Err(format!("Error converting hex to binary: {}", err)),
+    };
+
+    let block = match binary_address[(64 - b )..64].parse::<u64>() {
+        Ok(block) => block,
+        Err(err) => return Err(format!("Error parsing set index: {}", err)),
+    };
+
+    let set = match binary_address[(64 - b - s)..(64 - b)].parse::<usize>() {
+        Ok(set) => set,
+        Err(err) => return Err(format!("Error parsing set index: {}", err)),
+    };
+
+    let tag = match binary_address[0..(64 - b - s)].parse::<u64>() {
+        Ok(tag) => tag,
+        Err(err) => return Err(format!("Error parsing tag: {}", err)),
+    };
+
+    match operation {
+        "I" => {
+            for line in &cache.cache[set].set{
+                line.age -= 1;
+            }               
+         }
+        "L" | "S" => {
+            match check_cache(s, cache, set, tag){
+                Ok(Cacheresult::Hit) => {
+                    for line in &cache.cache[set].set{
+                        line.age -= 1;
+                        hit += 1;
+                    }
+                }
+                Ok(Cacheresult::Miss) => {
+                    let mut empty_line = 0;
+                    for line in &cache.cache[set].set {
+                        if line.validity == false {
+                            empty_line += 1;
+                        }
+                    }
+                    for line in &cache.cache[set].set{
+                        if line.validity == false{
+                            line.age == 0;
+                            line.validity == true;
+                            line.block = block;
+                            line.tag = tag;
+                        }
+                    }
+                }
+                Ok(Cacheresult::Full) => {
+                    for line in &cache.cache[set].set{
+                        line.age -= 1;
+                        hit += 1;
+                    }
+                }
+                Err(_) => todo!(),
+            }
+            } 
+
+
+            //check_cache(s, cache, set, tag);
+
+        
+            
+            
+        
+    } Ok(())
+}
+
+fn operate_flags(trace_file: &str, cache: &mut Cache, b: usize, s: usize) {
     // Implement the logic to read the trace file and call check_cache function
     // Update cache statistics
-    let file = File::open(trace_file)?;
-    let read = BufReader::new(file);
-    for line in read.lines(){
-        Ok(line) => line,
+    match File::open(trace_file) {
+        Ok(file) => {   
+            let read = BufReader::new(file);
+            for line in read.lines() {
+                match line {
+                    Ok(line) => {               
+                        let statements: Vec<&str> = line.trim().split(',').collect();
+                        if statements.len() != 2 {
+                            eprintln!("Invalid line format: {}", line);
+                            continue;
+                        }
+                        let oper = statements[0];
+                        let size = statements[1];
+
+                        let statement: Vec<&str> = oper.trim().split_whitespace().collect();
+                        let operation = statement[0];
+                        let hex_address = statement[1];
+
+                        operate_cache(hex_address, cache, b, s, operation);
+                        println!("{}", operation);
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading line from trace file: {}", e);
+                    }
+                }
+            }
+        }
         Err(err) => {
-            eprintln!("Error reading line from trace file: {}", err);
-            continue;
-        }
-        let statements: Vec<&str> = line.trim().split(',').collect();
-        if statements != 2{
-            eprintln!("Invalid line format: {}", line);
-            continue;
-        }
-        let oper = statements[0];
-        let size = statements[1];
-
-        let statement: Vec<&str> = oper.trim().split_whitespace().collect();
-        let operation = statement[0];
-        let address = statement[1];
-
-        //operate_cache(address, cache);
-        match operation {
-            "I" => {},
-            "L" => {
-                check_cache(address,cache);
-            }, 
-            "S" => {            
-            },    
+            eprintln!("Error opening trace file: {}", err);
         }
     }
-
 }
 
 // Function to print the final result of the simulation
